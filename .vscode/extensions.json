@@ -1,0 +1,11 @@
+{
+    "recommendations": [
+        "ms-vscode.cpptools-extension-pack",
+        "espressif.esp-idf-extension",
+        "twxs.cmake",
+        // Optional but good to have
+        "eamodio.gitlens",
+        "mhutchie.git-graph",
+        "usernamehw.errorlens"
+    ]
+}

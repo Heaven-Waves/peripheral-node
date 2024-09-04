@@ -1,0 +1,8 @@
+{
+    "idf.adapterTargetName": "esp32",
+    "files.associations": {
+        "i2s_stream.h": "c",
+        "sdkconfig*": "kconfig",
+        "opus_decoder.h": "c"
+    }
+}
