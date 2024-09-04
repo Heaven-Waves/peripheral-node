@@ -1,0 +1,51 @@
+#
+#  Default configurations
+#
+# Ensure that CMake is used as build tool instead of Make
+CONFIG_IDF_CMAKE=y
+# Targeting XTENSA by default, instead of RICSV
+CONFIG_IDF_TARGET_ARCH_XTENSA=y
+# Targeting ESP32 chips
+CONFIG_IDF_TARGET="esp32"
+CONFIG_IDF_TARGET_ESP32=y
+# Because of the above the value of this option should remain 0x0000
+# according to docs and help
+CONFIG_IDF_FIRMWARE_CHIP_ID=0x0000
+
+#
+# Audio HAL
+#
+# Using ESP32-LyraT V4.3 board
+CONFIG_ESP_LYRAT_V4_3_BOARD=y
+
+#
+# ESP32-specific
+#
+# The maximum CPU frequency avalilable
+CONFIG_ESP32_DEFAULT_CPU_FREQ_240=y
+CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ=240
+
+#
+# ESP32-specific
+#
+# Enabling SPIRAM support
+CONFIG_ESP32_SPIRAM_SUPPORT=y
+
+#
+# SPI RAM config
+#
+# Init SPIRAM during startups
+CONFIG_SPIRAM_BOOT_INIT=y
+# Make allocatable using `malloc()`
+CONFIG_SPIRAM_USE_MALLOC=y
+# Ignore if SPIRAM is not found
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+# Using maximum speed
+CONFIG_SPIRAM_SPEED_80M=y
+# Task stacks to be allocated in SPIRAM instead of internal RAM, 
+# freeing up internal memory for other uses.
+CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y
+# Try to allocate memories of WiFi and LWIP (LightWeight IP) in SPIRAM firstly. 
+#If failed, try to allocate internal memory then.
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+
