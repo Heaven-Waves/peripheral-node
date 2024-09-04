@@ -3,6 +3,8 @@
 
 cmake_minimum_required(VERSION 3.5)
 
+set(IDF_TARGET "esp32")
+
 # CMakeLists.txt from ESP-ADF
 include($ENV{ADF_PATH}/CMakeLists.txt)
 # Required depencancy file from ESP-IDF
