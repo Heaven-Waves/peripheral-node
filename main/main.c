@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "logs.h"
+#include "peripheral_node/logs.h"
 
 void app_main()
 {
