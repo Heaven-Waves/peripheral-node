@@ -24,8 +24,6 @@
 #include "peripheral_node/logs.h"
 #include "peripheral_node/pipeline.h"
 
-#define STREAM_URI "http://149.13.0.80/nrj128"
-
 audio_element_handle_t http_stream_reader, i2s_stream_writer, mp3_decoder;
 const char *http_stream_tag = "http";
 const char *mp3_decoder_tag = "mp3";
@@ -139,7 +137,8 @@ void app_main()
     pn_pipeline_link(&link_tag[0], 3);
 
     logi("[ 6 ] Setting up streaming URI for the HTTP stream reader");
-    audio_element_set_uri(http_stream_reader, STREAM_URI);
+    logi("[-*-] HTTP stream URI - %s", CONFIG_STREAM_URI);
+    audio_element_set_uri(http_stream_reader, CONFIG_STREAM_URI);
 
     logi("[ 7 ] Initialize event listener");
     initialize_event_listener();

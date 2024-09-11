@@ -14,3 +14,13 @@ config WIFI_PASSWORD
         Can be left blank if the network has no security set.
 
 endmenu
+
+menu "HTTP Streaming Configuration"
+
+    config STREAM_URI
+        string "The URI of the live HTTP straming"
+        default "http://149.13.0.80/nrj128"
+        help
+            The URI ot the radio to attach to
+
+endmenu
