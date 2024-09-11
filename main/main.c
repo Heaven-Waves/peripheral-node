@@ -39,6 +39,9 @@ esp_err_t initialize_audio_board()
 
     audio_board_handle_t board_handle = audio_board_init();
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
+
+    ESP_ERROR_CHECK(esp_netif_init());
+
     return ESP_OK;
 }
 
@@ -70,16 +73,32 @@ void app_main()
     logi("[ 1 ] Initializeing the audio board with the audio codec chip");
     initialize_audio_board();
 
+    // logi("[ 2 ] Creating audio pipeline for playback");
+    // pn_pipeline_init();
 
-    logi("[ 2 ] Creating audio pipeline for playback");
-    pn_pipeline_init();
+    logi("[ 3 ] Initialize event listener");
+    initialize_event_listener();
 
     logi("[ 4 ] Establishing for Wi-Fi connection (Initializing peripherals)");
     establish_wifi_connection();
 
-    logi("[ 5 ] Stoping the audio pipeline");
-    pn_pipeline_destroy();
-    pn_pipeline_deinit();
+    while (1)
+    {
+        audio_event_iface_msg_t message;
+        esp_err_t event_result = audio_event_iface_listen(event, &message, portMAX_DELAY);
+
+        if (event_result != ESP_OK)
+        {
+            loge("[ ! ] Event interface error : %d", event_result);
+            continue;
+        }
+
+        logi("*** Here %d", message.source_type);
+    }
+
+    // logi("[ 5 ] Stoping the audio pipeline");
+    // pn_pipeline_destroy();
+    // pn_pipeline_deinit();
 
     logi("[ 6 ] Stopping periherals (Wi-FI)");
     stop_wifi_connection();
