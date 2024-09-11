@@ -24,6 +24,9 @@
 #include "peripheral_node/pipeline.h"
 
 audio_element_handle_t http_stream_reader, i2s_stream_writer, mp3_decoder;
+const char *http_stream_tag = "http";
+const char *mp3_decoder_tag = "mp3";
+const char *i2s_stream_tag = "i2s";
 
 esp_periph_set_handle_t periph_set;
 audio_event_iface_handle_t event;
@@ -120,6 +123,15 @@ void app_main()
     i2s_stream_cfg_t i2s_stream_config = I2S_STREAM_CFG_DEFAULT();
     i2s_stream_config.type = AUDIO_STREAM_WRITER;
     i2s_stream_writer = i2s_stream_init(&i2s_stream_config);
+
+    logi("[ 4 ] Registering all these elements to the dedicated audio pipeline");
+    pn_pipeline_register(http_stream_reader, http_stream_tag);
+    pn_pipeline_register(mp3_decoder, mp3_decoder_tag);
+    pn_pipeline_register(i2s_stream_writer, i2s_stream_tag);
+
+    logi("[ 5 ] Linking the elements in proper order: http_stream-->mp3_decoder-->i2s_stream-->[codec_chip]");
+    const char *link_tag[3] = {http_stream_tag, mp3_decoder_tag, i2s_stream_tag};
+    pn_pipeline_link(&link_tag[0], 3);
 
     logi("[ 4 ] Initialize event listener");
     initialize_event_listener();
