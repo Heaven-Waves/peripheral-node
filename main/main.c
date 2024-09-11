@@ -16,8 +16,18 @@
 #include "periph_wifi.h"
 #include "esp_wifi.h"
 
+#include "http_stream.h"
+#include "i2s_stream.h"
+#include "opus_decoder.h"
+#include "mp3_decoder.h"
+
 #include "peripheral_node/logs.h"
 #include "peripheral_node/pipeline.h"
+
+audio_element_handle_t http_stream_reader, i2s_stream_writer, mp3_decoder;
+const char *http_stream_tag = "http";
+const char *mp3_decoder_tag = "mp3";
+const char *i2s_stream_tag = "i2s";
 
 esp_periph_set_handle_t periph_set;
 audio_event_iface_handle_t event;
@@ -47,7 +57,7 @@ esp_err_t initialize_audio_board()
 
 esp_err_t establish_wifi_connection()
 {
-    logi(" * Initializing Wi-Fi peripheraals");
+    logi("[-*-] Initializing Wi-Fi peripheraals");
     esp_periph_config_t periph_config = DEFAULT_ESP_PERIPH_SET_CONFIG();
     periph_set = esp_periph_set_init(&periph_config);
     periph_wifi_cfg_t wifi_config = {
@@ -56,7 +66,7 @@ esp_err_t establish_wifi_connection()
     };
     esp_periph_handle_t wifi_handle = periph_wifi_init(&wifi_config);
 
-    logi("* Starting the Wi-Fi peripheral for connection");
+    logi("[-*-] Starting the Wi-Fi peripheral for connection");
     esp_periph_start(periph_set, wifi_handle);
     periph_wifi_wait_for_connected(wifi_handle, portMAX_DELAY);
 
@@ -65,23 +75,81 @@ esp_err_t establish_wifi_connection()
 
 esp_err_t stop_wifi_connection()
 {
-    return esp_periph_set_stop_all(periph_set);
+    esp_periph_set_stop_all(periph_set);
+    audio_event_iface_remove_listener(esp_periph_set_get_event_iface(periph_set), event);
+    return ESP_OK;
 }
+
+int event_handle_for_http_stream(http_stream_event_msg_t *message)
+{
+    if (message->event_id == HTTP_STREAM_RESOLVE_ALL_TRACKS)
+    {
+        return ESP_OK;
+    }
+
+    if (message->event_id == HTTP_STREAM_FINISH_TRACK)
+    {
+        return http_stream_next_track(message->el);
+    }
+    if (message->event_id == HTTP_STREAM_FINISH_PLAYLIST)
+    {
+        return http_stream_fetch_again(message->el);
+    }
+    return ESP_OK;
+}
+
+// void initialize_http_stream_reader() {}
+// void initialize_mp3_dedcoder() {}
+// void initialize_i2s_stream_writer() {}
 
 void app_main()
 {
     logi("[ 1 ] Initializeing the audio board with the audio codec chip");
     initialize_audio_board();
 
-    // logi("[ 2 ] Creating audio pipeline for playback");
-    // pn_pipeline_init();
+    logi("[ 2 ] Creating audio pipeline for playback");
+    pn_pipeline_init();
 
-    logi("[ 3 ] Initialize event listener");
+    logi("[ 3 ] Creating reqired audio elements for pipeline");
+    logi("[-*-] Initializing an HTTP stream reader to read the incomig HTTP audio");
+    http_stream_cfg_t http_config = HTTP_STREAM_CFG_DEFAULT();
+    http_config.event_handle = event_handle_for_http_stream;
+    http_config.type = AUDIO_STREAM_READER;
+    http_config.enable_playlist_parser = true;
+    http_stream_reader = http_stream_init(&http_config);
+
+    logi("[-*-] Initializing an MP3 decoder to decode the incoming HTTP stream encoded with MP3");
+    mp3_decoder_cfg_t mp3_config = DEFAULT_MP3_DECODER_CONFIG();
+    mp3_decoder = mp3_decoder_init(&mp3_config);
+
+    logi("[-*-] Initializing an I2S stream to write data to codec chip");
+    i2s_stream_cfg_t i2s_stream_config = I2S_STREAM_CFG_DEFAULT();
+    i2s_stream_config.type = AUDIO_STREAM_WRITER;
+    i2s_stream_writer = i2s_stream_init(&i2s_stream_config);
+
+    logi("[ 4 ] Registering all these elements to the dedicated audio pipeline");
+    pn_pipeline_register(http_stream_reader, http_stream_tag);
+    pn_pipeline_register(mp3_decoder, mp3_decoder_tag);
+    pn_pipeline_register(i2s_stream_writer, i2s_stream_tag);
+
+    logi("[ 5 ] Linking the elements in proper order: http_stream-->mp3_decoder-->i2s_stream-->[codec_chip]");
+    const char *link_tag[3] = {http_stream_tag, mp3_decoder_tag, i2s_stream_tag};
+    pn_pipeline_link(&link_tag[0], 3);
+
+    logi("[ 6 ] Setting up streaming URI for the HTTP stream reader");
+    logi("[-*-] HTTP stream URI - %s", CONFIG_STREAM_URI);
+    audio_element_set_uri(http_stream_reader, CONFIG_STREAM_URI);
+
+    logi("[ 7 ] Initialize event listener");
     initialize_event_listener();
+    logi(" * Catching all events from the elements inside the pipeline");
+    pn_pipeline_set_listener(event);
 
-    logi("[ 4 ] Establishing for Wi-Fi connection (Initializing peripherals)");
+    logi("[ 8 ] Establishing for Wi-Fi connection (Initializing peripherals)");
     establish_wifi_connection();
 
+    logi("[ 9 ] Starting the audio pipeline");
+    pn_pipeline_run();
     while (1)
     {
         audio_event_iface_msg_t message;
@@ -93,13 +161,68 @@ void app_main()
             continue;
         }
 
-        logi("*** Here %d", message.source_type);
+        /* If the incomming message was originated from the MP3 decoder */
+        if (message.source == (void *)mp3_decoder &&
+            message.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+            message.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO)
+        {
+            audio_element_info_t sound_information = {0};
+            audio_element_getinfo(mp3_decoder, &sound_information);
+
+            logi("[-*-] Receiving information from `mp3_decoder`:");
+            logi("[-*-] - sample_rates = %d", sound_information.sample_rates);
+            logi("[-*-] - bits = %d", sound_information.bits);
+            logi("[-*-] - channels = %d", sound_information.channels);
+
+            /* Setup the internal I2S clock according to decoded MP3 stream */
+            i2s_stream_set_clk(
+                i2s_stream_writer,
+                sound_information.sample_rates,
+                sound_information.bits,
+                sound_information.channels);
+
+            continue;
+        }
+
+        /* Restart the stream if the http_stream_reader receives stop event (caused by reading errors) */
+        if (message.source == (void *)http_stream_reader &&
+            message.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+            message.cmd == AEL_MSG_CMD_REPORT_STATUS &&
+            (int)message.data == AEL_STATUS_ERROR_OPEN)
+        {
+            logw("[-!-] Restarting stream because of errors in http_stream");
+            pn_pipeline_stop_all();
+
+            audio_element_reset_state(mp3_decoder);
+            audio_element_reset_state(i2s_stream_writer);
+
+            pn_pipeline_reset_all();
+            pn_pipeline_run();
+            continue;
+        }
     }
 
-    // logi("[ 5 ] Stoping the audio pipeline");
-    // pn_pipeline_destroy();
-    // pn_pipeline_deinit();
+    logi("[ 10 ] Stoping the audio pipeline");
+    pn_pipeline_destroy();
 
-    logi("[ 6 ] Stopping periherals (Wi-FI)");
+    logi("[-*-] Unregistering all audio elements in pipeline");
+    pn_pipeline_unregister(http_stream_reader);
+    pn_pipeline_unregister(mp3_decoder);
+    pn_pipeline_unregister(i2s_stream_writer);
+
+    logi("[-*-] Remove event listener from pipeline");
+    pn_pipeline_remove_listener();
+
+    logi("[ 11 ] Stopping periherals before removing event listener");
     stop_wifi_connection();
+
+    logi("[ 12 ] Remove the event listener enitirely");
+    audio_event_iface_destroy(event);
+
+    logi("[ 13 ] Releasing all other allocated resources");
+    pn_pipeline_deinit();
+    audio_element_deinit(http_stream_reader);
+    audio_element_deinit(i2s_stream_writer);
+    audio_element_deinit(mp3_decoder);
+    esp_periph_set_destroy(periph_set);
 }
