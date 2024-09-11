@@ -20,12 +20,12 @@
 #include "peripheral_node/pipeline.h"
 
 esp_periph_set_handle_t periph_set;
-audio_event_iface_handle_t evt;
+audio_event_iface_handle_t event;
 
 void initialize_event_listener()
 {
-    audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
-    evt = audio_event_iface_init(&evt_cfg);
+    audio_event_iface_cfg_t event_config = AUDIO_EVENT_IFACE_DEFAULT_CFG();
+    event = audio_event_iface_init(&event_config);
 }
 
 esp_err_t initialize_audio_board()
@@ -68,7 +68,8 @@ esp_err_t stop_wifi_connection()
 void app_main()
 {
     logi("[ 1 ] Initializeing the audio board with the audio codec chip");
-    initialize_board();
+    initialize_audio_board();
+
 
     logi("[ 2 ] Creating audio pipeline for playback");
     pn_pipeline_init();
