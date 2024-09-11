@@ -16,8 +16,12 @@
 #include "periph_wifi.h"
 #include "esp_wifi.h"
 
+#include "http_stream.h"
+
 #include "peripheral_node/logs.h"
 #include "peripheral_node/pipeline.h"
+
+audio_element_handle_t http_stream_reader, i2s_stream_writer, mp3_decoder;
 
 esp_periph_set_handle_t periph_set;
 audio_event_iface_handle_t event;
@@ -68,18 +72,44 @@ esp_err_t stop_wifi_connection()
     return esp_periph_set_stop_all(periph_set);
 }
 
+int event_handle_for_http_stream(http_stream_event_msg_t *message)
+{
+    if (message->event_id == HTTP_STREAM_RESOLVE_ALL_TRACKS)
+    {
+        return ESP_OK;
+    }
+
+    if (message->event_id == HTTP_STREAM_FINISH_TRACK)
+    {
+        return http_stream_next_track(message->el);
+    }
+    if (message->event_id == HTTP_STREAM_FINISH_PLAYLIST)
+    {
+        return http_stream_fetch_again(message->el);
+    }
+    return ESP_OK;
+}
+
 void app_main()
 {
     logi("[ 1 ] Initializeing the audio board with the audio codec chip");
     initialize_audio_board();
 
-    // logi("[ 2 ] Creating audio pipeline for playback");
-    // pn_pipeline_init();
+    logi("[ 2 ] Creating audio pipeline for playback");
+    pn_pipeline_init();
 
-    logi("[ 3 ] Initialize event listener");
+    logi("[ 3 ] Creating reqired audio elements for pipeline");
+    logi(" * Initializing an HTTP stream reader to read the incomig HTTP audio");
+    http_stream_cfg_t http_config = HTTP_STREAM_CFG_DEFAULT();
+    http_config.event_handle = event_handle_for_http_stream;
+    http_config.type = AUDIO_STREAM_READER;
+    http_config.enable_playlist_parser = true;
+    http_stream_reader = http_stream_init(&http_config);
+
+    logi("[ 4 ] Initialize event listener");
     initialize_event_listener();
 
-    logi("[ 4 ] Establishing for Wi-Fi connection (Initializing peripherals)");
+    logi("[ 5 ] Establishing for Wi-Fi connection (Initializing peripherals)");
     establish_wifi_connection();
 
     while (1)
@@ -96,10 +126,10 @@ void app_main()
         logi("*** Here %d", message.source_type);
     }
 
-    // logi("[ 5 ] Stoping the audio pipeline");
-    // pn_pipeline_destroy();
-    // pn_pipeline_deinit();
+    logi("[ 6 ] Stoping the audio pipeline");
+    pn_pipeline_destroy();
+    pn_pipeline_deinit();
 
-    logi("[ 6 ] Stopping periherals (Wi-FI)");
+    logi("[ 7 ] Stopping periherals (Wi-FI)");
     stop_wifi_connection();
 }
