@@ -18,10 +18,13 @@
 
 #include "http_stream.h"
 #include "i2s_stream.h"
+#include "opus_decoder.h"
 #include "mp3_decoder.h"
 
 #include "peripheral_node/logs.h"
 #include "peripheral_node/pipeline.h"
+
+#define STREAM_URI "http://149.13.0.80/nrj128"
 
 audio_element_handle_t http_stream_reader, i2s_stream_writer, mp3_decoder;
 const char *http_stream_tag = "http";
@@ -132,6 +135,9 @@ void app_main()
     logi("[ 5 ] Linking the elements in proper order: http_stream-->mp3_decoder-->i2s_stream-->[codec_chip]");
     const char *link_tag[3] = {http_stream_tag, mp3_decoder_tag, i2s_stream_tag};
     pn_pipeline_link(&link_tag[0], 3);
+
+    logi("[ 6 ] Setting up streaming URI for the HTTP stream reader");
+    audio_element_set_uri(http_stream_reader, STREAM_URI);
 
     logi("[ 4 ] Initialize event listener");
     initialize_event_listener();
