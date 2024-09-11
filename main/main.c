@@ -182,6 +182,23 @@ void app_main()
 
             continue;
         }
+
+        /* Restart the stream if the http_stream_reader receives stop event (caused by reading errors) */
+        if (message.source == (void *)http_stream_reader &&
+            message.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+            message.cmd == AEL_MSG_CMD_REPORT_STATUS &&
+            (int)message.data == AEL_STATUS_ERROR_OPEN)
+        {
+            logw("[-!-] Restarting stream because of errors in http_stream");
+            pn_pipeline_stop_all();
+
+            audio_element_reset_state(mp3_decoder);
+            audio_element_reset_state(i2s_stream_writer);
+
+            pn_pipeline_reset_all();
+            pn_pipeline_run();
+            continue;
+        }
     }
 
     logi("[ 6 ] Stoping the audio pipeline");
