@@ -13,3 +13,12 @@ esp_err_t pn_pipeline_deinit()
     return audio_pipeline_deinit(pipeline);
 }
 
+esp_err_t pn_pipeline_register(audio_element_handle_t element, const char *name)
+{
+    return audio_pipeline_register(pipeline, element, name);
+}
+
+esp_err_t pn_pipeline_unregister(audio_element_handle_t element)
+{
+    return audio_pipeline_unregister(pipeline, element);
+}
