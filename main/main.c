@@ -17,6 +17,7 @@
 #include "esp_wifi.h"
 
 #include "http_stream.h"
+#include "mp3_decoder.h"
 
 #include "peripheral_node/logs.h"
 #include "peripheral_node/pipeline.h"
@@ -90,6 +91,10 @@ int event_handle_for_http_stream(http_stream_event_msg_t *message)
     return ESP_OK;
 }
 
+// void initialize_http_stream_reader() {}
+// void initialize_mp3_dedcoder() {}
+// void initialize_i2s_stream_writer() {}
+
 void app_main()
 {
     logi("[ 1 ] Initializeing the audio board with the audio codec chip");
@@ -105,6 +110,10 @@ void app_main()
     http_config.type = AUDIO_STREAM_READER;
     http_config.enable_playlist_parser = true;
     http_stream_reader = http_stream_init(&http_config);
+
+    logi("* Initializing an MP3 decoder to decode the incoming HTTP stream encoded with MP3");
+    mp3_decoder_cfg_t mp3_config = DEFAULT_MP3_DECODER_CONFIG();
+    mp3_decoder = mp3_decoder_init(&mp3_config);
 
     logi("[ 4 ] Initialize event listener");
     initialize_event_listener();
