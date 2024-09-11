@@ -62,3 +62,32 @@ esp_err_t pn_pipeline_stop_all()
 
     return ESP_OK;
 }
+
+esp_err_t pn_pipeline_reset_ringbuffer()
+{
+    return audio_pipeline_reset_ringbuffer(pipeline);
+}
+
+esp_err_t pn_pipeline_reset_items_state()
+{
+    return audio_pipeline_reset_items_state(pipeline);
+}
+
+esp_err_t pn_pipeline_reset_all()
+{
+    esp_err_t result;
+
+    result = pn_pipeline_reset_ringbuffer();
+    if (result != ESP_OK)
+    {
+        return result;
+    }
+
+    result = pn_pipeline_reset_items_state();
+    if (result != ESP_OK)
+    {
+        return result;
+    }
+
+    return ESP_OK;
+}
