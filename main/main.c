@@ -77,7 +77,9 @@ esp_err_t establish_wifi_connection()
 
 esp_err_t stop_wifi_connection()
 {
-    return esp_periph_set_stop_all(periph_set);
+    esp_periph_set_stop_all(periph_set);
+    audio_event_iface_remove_listener(esp_periph_set_get_event_iface(periph_set), event);
+    return ESP_OK;
 }
 
 int event_handle_for_http_stream(http_stream_event_msg_t *message)
@@ -201,10 +203,27 @@ void app_main()
         }
     }
 
-    logi("[ 6 ] Stoping the audio pipeline");
+    logi("[ 10 ] Stoping the audio pipeline");
     pn_pipeline_destroy();
-    pn_pipeline_deinit();
 
-    logi("[ 7 ] Stopping periherals (Wi-FI)");
+    logi("[-*-] Unregistering all audio elements in pipeline");
+    pn_pipeline_unregister(http_stream_reader);
+    pn_pipeline_unregister(mp3_decoder);
+    pn_pipeline_unregister(i2s_stream_writer);
+
+    logi("[-*-] Remove event listener from pipeline");
+    pn_pipeline_remove_listener();
+
+    logi("[ 11 ] Stopping periherals before removing event listener");
     stop_wifi_connection();
+
+    logi("[ 12 ] Remove the event listener enitirely");
+    audio_event_iface_destroy(event);
+
+    logi("[ 13 ] Releasing all other allocated resources");
+    pn_pipeline_deinit();
+    audio_element_deinit(http_stream_reader);
+    audio_element_deinit(i2s_stream_writer);
+    audio_element_deinit(mp3_decoder);
+    esp_periph_set_destroy(periph_set);
 }
