@@ -115,3 +115,13 @@ esp_err_t pn_pipeline_reset_all()
 
     return ESP_OK;
 }
+
+esp_err_t pn_pipeline_set_listener(audio_event_iface_handle_t event)
+{
+    return audio_pipeline_set_listener(pipeline, event);
+}
+
+esp_err_t pn_pipeline_remove_listener()
+{
+    return audio_pipeline_remove_listener(pipeline);
+}
