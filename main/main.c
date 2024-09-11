@@ -59,7 +59,7 @@ esp_err_t initialize_audio_board()
 
 esp_err_t establish_wifi_connection()
 {
-    logi(" * Initializing Wi-Fi peripheraals");
+    logi("[-*-] Initializing Wi-Fi peripheraals");
     esp_periph_config_t periph_config = DEFAULT_ESP_PERIPH_SET_CONFIG();
     periph_set = esp_periph_set_init(&periph_config);
     periph_wifi_cfg_t wifi_config = {
@@ -111,18 +111,18 @@ void app_main()
     pn_pipeline_init();
 
     logi("[ 3 ] Creating reqired audio elements for pipeline");
-    logi(" * Initializing an HTTP stream reader to read the incomig HTTP audio");
+    logi("[-*-] Initializing an HTTP stream reader to read the incomig HTTP audio");
     http_stream_cfg_t http_config = HTTP_STREAM_CFG_DEFAULT();
     http_config.event_handle = event_handle_for_http_stream;
     http_config.type = AUDIO_STREAM_READER;
     http_config.enable_playlist_parser = true;
     http_stream_reader = http_stream_init(&http_config);
 
-    logi("* Initializing an MP3 decoder to decode the incoming HTTP stream encoded with MP3");
+    logi("[-*-] Initializing an MP3 decoder to decode the incoming HTTP stream encoded with MP3");
     mp3_decoder_cfg_t mp3_config = DEFAULT_MP3_DECODER_CONFIG();
     mp3_decoder = mp3_decoder_init(&mp3_config);
 
-    logi("* Initializing an I2S stream to write data to codec chip");
+    logi("[-*-] Initializing an I2S stream to write data to codec chip");
     i2s_stream_cfg_t i2s_stream_config = I2S_STREAM_CFG_DEFAULT();
     i2s_stream_config.type = AUDIO_STREAM_WRITER;
     i2s_stream_writer = i2s_stream_init(&i2s_stream_config);
