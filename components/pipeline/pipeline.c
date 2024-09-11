@@ -22,3 +22,43 @@ esp_err_t pn_pipeline_unregister(audio_element_handle_t element)
 {
     return audio_pipeline_unregister(pipeline, element);
 }
+
+esp_err_t pn_pipeline_link(const char **link_tag, int link_num)
+{
+    // be careful with the second argument!
+    return audio_pipeline_link(pipeline, link_tag, link_num);
+}
+
+esp_err_t pn_pipeline_run()
+{
+    return audio_pipeline_run(pipeline);
+}
+
+esp_err_t pn_pipeline_stop()
+{
+    return audio_pipeline_stop(pipeline);
+}
+
+esp_err_t pn_pipeline_wait_for_stop()
+{
+    return audio_pipeline_wait_for_stop(pipeline);
+}
+
+esp_err_t pn_pipeline_stop_all()
+{
+    esp_err_t result;
+
+    result = pn_pipeline_stop();
+    if (result != ESP_OK)
+    {
+        return result;
+    }
+
+    result = pn_pipeline_wait_for_stop();
+    if (result != ESP_OK)
+    {
+        return result;
+    }
+
+    return ESP_OK;
+}
