@@ -17,6 +17,7 @@
 #include "esp_wifi.h"
 
 #include "http_stream.h"
+#include "i2s_stream.h"
 #include "mp3_decoder.h"
 
 #include "peripheral_node/logs.h"
@@ -114,6 +115,11 @@ void app_main()
     logi("* Initializing an MP3 decoder to decode the incoming HTTP stream encoded with MP3");
     mp3_decoder_cfg_t mp3_config = DEFAULT_MP3_DECODER_CONFIG();
     mp3_decoder = mp3_decoder_init(&mp3_config);
+
+    logi("* Initializing an I2S stream to write data to codec chip");
+    i2s_stream_cfg_t i2s_stream_config = I2S_STREAM_CFG_DEFAULT();
+    i2s_stream_config.type = AUDIO_STREAM_WRITER;
+    i2s_stream_writer = i2s_stream_init(&i2s_stream_config);
 
     logi("[ 4 ] Initialize event listener");
     initialize_event_listener();
