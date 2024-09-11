@@ -3,10 +3,10 @@
 
 // static const char *TAG;
 
-void logi(char *msg);
+void logi(char *msg, ...);
 
-void loge(char *msg);
+void loge(char *msg, ...);
 
-void logw(char *msg);
+void logw(char *msg, ...);
 
 #endif // PERIHERAL_NODE_LOGS
