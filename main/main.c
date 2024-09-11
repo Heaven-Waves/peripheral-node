@@ -68,7 +68,7 @@ esp_err_t establish_wifi_connection()
     };
     esp_periph_handle_t wifi_handle = periph_wifi_init(&wifi_config);
 
-    logi("* Starting the Wi-Fi peripheral for connection");
+    logi("[-*-] Starting the Wi-Fi peripheral for connection");
     esp_periph_start(periph_set, wifi_handle);
     periph_wifi_wait_for_connected(wifi_handle, portMAX_DELAY);
 
@@ -139,12 +139,16 @@ void app_main()
     logi("[ 6 ] Setting up streaming URI for the HTTP stream reader");
     audio_element_set_uri(http_stream_reader, STREAM_URI);
 
-    logi("[ 4 ] Initialize event listener");
+    logi("[ 7 ] Initialize event listener");
     initialize_event_listener();
+    logi(" * Catching all events from the elements inside the pipeline");
+    pn_pipeline_set_listener(event);
 
-    logi("[ 5 ] Establishing for Wi-Fi connection (Initializing peripherals)");
+    logi("[ 8 ] Establishing for Wi-Fi connection (Initializing peripherals)");
     establish_wifi_connection();
 
+    logi("[ 9 ] Starting the audio pipeline");
+    pn_pipeline_run();
     while (1)
     {
         audio_event_iface_msg_t message;
@@ -156,7 +160,28 @@ void app_main()
             continue;
         }
 
-        logi("*** Here %d", message.source_type);
+        /* If the incomming message was originated from the MP3 decoder */
+        if (message.source == (void *)mp3_decoder &&
+            message.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+            message.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO)
+        {
+            audio_element_info_t sound_information = {0};
+            audio_element_getinfo(mp3_decoder, &sound_information);
+
+            logi("[-*-] Receiving information from `mp3_decoder`:");
+            logi("[-*-] - sample_rates = %d", sound_information.sample_rates);
+            logi("[-*-] - bits = %d", sound_information.bits);
+            logi("[-*-] - channels = %d", sound_information.channels);
+
+            /* Setup the internal I2S clock according to decoded MP3 stream */
+            i2s_stream_set_clk(
+                i2s_stream_writer,
+                sound_information.sample_rates,
+                sound_information.bits,
+                sound_information.channels);
+
+            continue;
+        }
     }
 
     logi("[ 6 ] Stoping the audio pipeline");
