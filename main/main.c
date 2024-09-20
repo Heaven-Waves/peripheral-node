@@ -52,6 +52,10 @@ esp_err_t initialize_audio_board()
 
     ESP_ERROR_CHECK(esp_netif_init());
 
+    // set initial volume to 100%
+    logi("[-!-] Setting the volume to 100%")
+    audio_hal_set_volume(board_handle->audio_hal, 100);
+
     return ESP_OK;
 }
 
@@ -150,6 +154,7 @@ void app_main()
 
     logi("[ 9 ] Starting the audio pipeline");
     pn_pipeline_run();
+
     while (1)
     {
         audio_event_iface_msg_t message;
