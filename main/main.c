@@ -192,6 +192,70 @@ static int setup_udp_multicast()
 }
 
 // =============================================================================
+// RTP HEADER PARSING
+// =============================================================================
+
+// RTP header structure (12 bytes minimum)
+typedef struct
+{
+    uint8_t vpxcc; // V(2), P(1), X(1), CC(4)
+    uint8_t mpt;   // M(1), PT(7)
+    uint16_t seq;  // Sequence number
+    uint32_t ts;   // Timestamp
+    uint32_t ssrc; // SSRC
+} rtp_header_t;
+
+static inline int get_rtp_payload(uint8_t *packet, int packet_len,
+                                  uint8_t **payload, int *payload_len)
+{
+    if (packet_len < RTP_HEADER_SIZE)
+    {
+        return -1; // Too short to be RTP
+    }
+
+    rtp_header_t *rtp = (rtp_header_t *)packet;
+
+    // Check RTP version (should be 2)
+    uint8_t version = (rtp->vpxcc >> 6) & 0x03;
+    if (version != 2)
+    {
+        // Not RTP or wrong version, treat as raw Opus
+        *payload = packet;
+        *payload_len = packet_len;
+        return 0;
+    }
+
+    // Calculate header size
+    int header_size = RTP_HEADER_SIZE; // Basic RTP header
+
+    // Add CSRC size if present
+    uint8_t cc = rtp->vpxcc & 0x0F;
+    header_size += cc * 4;
+
+    // Check for extension header
+    if (rtp->vpxcc & 0x10)
+    {
+        if (packet_len < header_size + 4)
+        {
+            return -1;
+        }
+        uint16_t ext_len = (packet[header_size + 2] << 8) | packet[header_size + 3];
+        header_size += 4 + (ext_len * 4);
+    }
+
+    if (header_size >= packet_len)
+    {
+        return -1; // Invalid packet
+    }
+
+    // Extract payload
+    *payload = packet + header_size;
+    *payload_len = packet_len - header_size;
+
+    return 1; // RTP packet successfully parsed
+}
+
+// =============================================================================
 // AUDIO PIPELINE SETUP
 // =============================================================================
 
