@@ -163,7 +163,32 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
     logi("NVS initialized");
 
-    // 2. Connect to WiFi
+    // 2. Initialize audio board (LyraT)
+    audio_hal_codec_config_t audio_codec_cfg = {
+        .adc_input = AUDIO_HAL_ADC_INPUT_LINE1,
+        .dac_output = AUDIO_HAL_DAC_OUTPUT_ALL,
+        .codec_mode = AUDIO_HAL_CODEC_MODE_DECODE,
+        .i2s_iface = {
+            .mode = AUDIO_HAL_MODE_SLAVE,
+            .fmt = AUDIO_HAL_I2S_NORMAL,
+            .samples = AUDIO_HAL_48K_SAMPLES,
+            .bits = AUDIO_HAL_BIT_LENGTH_16BITS,
+        }};
+
+    logi("Audio board configuration set");
+
+    audio_hal_handle_t audio_hal = audio_hal_init(&audio_codec_cfg, &AUDIO_CODEC_ES8388_DEFAULT_HANDLE);
+    if (audio_hal == NULL)
+    {
+        loge("Failed to initialize audio board");
+        return;
+    }
+
+    audio_hal_set_volume(audio_hal, 100);
+    audio_hal_ctrl_codec(audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
+    logi("Audio board initialized, volume: 100%%");
+
+    // 3. Connect to WiFi
     wifi_init_sta();
     logi("WiFi connected");
 }
