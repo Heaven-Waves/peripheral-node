@@ -7,10 +7,10 @@ cmake_minimum_required(VERSION 3.5)
 set(IDF_TARGET "esp32")
 
 # CMakeLists.txt from ESP-ADF
-# ESP-ADF version used: v2.6
+# ESP-ADF version used: v2.7
 include($ENV{ADF_PATH}/CMakeLists.txt)
 # Required depencancy file from ESP-IDF
-# ESP-IDF version used: v4.4.4
+# ESP-IDF version used: v5.3.1
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 # The project's name

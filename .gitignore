@@ -1,4 +1,54 @@
-build/
-managed_components/
+.config
+*.o
+*.pyc
+
+# gtags
+GTAGS
+GRTAGS
+GPATH
+
+# emacs
+.dir-locals.el
+
+# emacs temp file suffixes
+*~
+.#*
+\#*#
+# MacOS directory files
+.DS_Store
+
+# eclipse setting
+.settings
+
+# Example project files
 sdkconfig
 sdkconfig.old
+build/
+managed_components/
+
+
+# Doc build artifacts
+_build/
+/_build/
+/doxygen-warning-log.txt
+/sphinx-warning-log.txt
+/sphinx-warning-log-sanitized.txt
+/xml/
+/xml_in/
+/man/
+/doxygen_sqlite3.db
+
+# Downloaded font files
+_static/DejaVuSans.ttf
+_static/NotoSansSC-Regular.otf
+
+# gcov coverage reports
+*.gcda
+*.gcno
+coverage.info
+coverage_report/
+
+
+**/.cache/
+
+venv/

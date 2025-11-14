@@ -3,6 +3,7 @@
     "files.associations": {
         "i2s_stream.h": "c",
         "sdkconfig*": "kconfig",
-        "opus_decoder.h": "c"
+        "opus_decoder.h": "c",
+        "freertos.h": "c"
     }
 }
