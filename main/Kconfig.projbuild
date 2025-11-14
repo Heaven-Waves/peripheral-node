@@ -1,26 +1,64 @@
-menu "Wi-Fi Connectivity Configuration"
+menu "WiFI Configuration"
 
-config WIFI_SSID
-    string "Wi-Fi SSID"
-    default "myssid"
-    help
-        SSID (network name) to connect the ESP32 to
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "YourWiFiSSID"
+        help
+            SSID (network name) for the ESP32 to connect to.
 
-config WIFI_PASSWORD
-    string "Wi-Fi Password"
-    default "mypassword"
-    help
-        Wi-Fi password (WPA or WPA2) for the given SSID.
-        Can be left blank if the network has no security set.
+    config WIFI_PASSWORD
+        string "WiFi Password"
+        default "YourWiFiPassword"
+        help
+            WiFi password (WPA or WPA2) for the ESP32 to use.
+endmenu
+
+menu "Audio Streaming Configuration"
+    config MULTICAST_IP
+        string "Multicast IP Address"
+        default "224.1.1.1"
+        help
+            Multicast group IP address to join.
+
+    config UDP_PORT
+        int "UDP Port"
+        default 5005
+        help
+            UDP port number to listen on.
+
+
+    config AUDIO_SAMPLE_RATE
+        int "Audio Sample Rate"
+        default 48000
+        help
+            Sample rate for audio playback (8000, 16000, 24000, 48000).
+
+    config BITS_PER_SAMPLE
+        int "Bits per sample"
+        default 16
+        help
+            8,16,32...
+
+    config AUDIO_CHANNELS
+        int "Audio Channels"
+        default 2
+        range 1 2
+        help
+            Number of audio channels (1=Mono, 2=Stereo).
 
 endmenu
 
-menu "HTTP Streaming Configuration"
-
-    config STREAM_URI
-        string "The URI of the live HTTP straming"
-        default "http://149.13.0.80/nrj128"
-        help
-            The URI ot the radio to attach to
-
+menu "Opus Configuration"
+    config OPUS_FRAME_SIZE
+        int "Frame Size"
+        default 960
+    
+    config MAX_PACKET_SIZE
+        int "Maximum Packet Size"
+        default 2048
+    
+    config JITTER_BUFFER_SIZE
+        int "Jutter Buffer Size"
+        default 2048
+        
 endmenu
