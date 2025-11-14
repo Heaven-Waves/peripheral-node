@@ -205,8 +205,11 @@ typedef struct
     uint32_t ssrc; // SSRC
 } rtp_header_t;
 
-static inline int get_rtp_payload(uint8_t *packet, int packet_len,
-                                  uint8_t **payload, int *payload_len)
+static inline int get_rtp_payload(
+    uint8_t *packet,
+    int packet_len,
+    uint8_t **payload,
+    int *payload_len)
 {
     if (packet_len < RTP_HEADER_SIZE)
     {
@@ -253,6 +256,161 @@ static inline int get_rtp_payload(uint8_t *packet, int packet_len,
     *payload_len = packet_len - header_size;
 
     return 1; // RTP packet successfully parsed
+}
+
+// =============================================================================
+// UDP RECEIVER TASK
+// =============================================================================
+
+static void udp_receiver_task(void *pvParameters)
+{
+    struct sockaddr_in raddr;
+    socklen_t socklen = sizeof(raddr);
+    uint32_t packets_received = 0;
+    uint32_t last_report_time = 0;
+
+    logi("UDP receiver task started");
+
+    // Wait for pipeline to start
+    while (!pipeline_running)
+    {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    logi("Waiting for UDP packets on %s:%d", CONFIG_MULTICAST_IP, CONFIG_UDP_PORT);
+
+    // Main receiving loop
+    while (1)
+    {
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(udp_socket, &rfds);
+
+        struct timeval tv = {
+            .tv_sec = 2,
+            .tv_usec = 0,
+        };
+
+        // Wait for data with timeout
+        int s = select(udp_socket + 1, &rfds, NULL, NULL, &tv);
+        if (s < 0)
+        {
+            loge("Select failed: errno %d", errno);
+            break;
+        }
+        else if (s == 0)
+        {
+            logw("Timeout - no data received, continue waiting");
+            // Timeout - no data received, continue waiting
+            continue;
+        }
+
+        // Data is available, receive it (using static buffer to avoid stack overflow)
+        int len = recvfrom(udp_socket, udp_recv_buffer, sizeof(udp_recv_buffer) - 1, 0,
+                           (struct sockaddr *)&raddr, &socklen);
+
+        if (len < 0)
+        {
+            loge("recvfrom failed: errno %d", errno);
+            continue;
+        }
+
+        packets_received++;
+
+        // Parse RTP header to get Opus payload
+        uint8_t *opus_payload = NULL;
+        int opus_len = 0;
+        int rtp_result = get_rtp_payload((uint8_t *)udp_recv_buffer, len, &opus_payload, &opus_len);
+
+        if (rtp_result < 0)
+        {
+
+            logw("Invalid packet");
+            continue; // Invalid packet
+        }
+
+        // Skip too small packets
+        if (opus_len < 20)
+        {
+            logw("Packet too small (%d bytes), skipping", opus_len);
+            continue;
+        }
+
+        logi("Before decoding");
+
+        if (!decoder)
+        {
+            loge("opus decoder is NULL!");
+            continue;
+        }
+
+        int no_fec = 0; // 0 = no FEC
+        // // Decode Opus to PCM using static buffer
+        int decoded_samples = opus_decode(
+            decoder,
+            opus_payload,
+            opus_len,
+            pcm_buffer,
+            CONFIG_OPUS_FRAME_SIZE,
+            no_fec);
+
+        if (decoded_samples < 0)
+        {
+            logw("Opus decode error: %d", decoded_samples);
+            continue;
+        }
+
+        // Calculate bytes to write
+        int pcm_bytes = decoded_samples * CONFIG_AUDIO_CHANNELS * sizeof(int16_t);
+
+        // Write PCM data to I2S
+        int written = rb_write(
+            in_ringbuf,
+            (char *)pcm_buffer,
+            pcm_bytes,
+            portMAX_DELAY);
+
+        if (written != pcm_bytes && packets_received <= 5)
+        {
+            logw("Buffer write incomplete: %d/%d bytes", written, pcm_bytes);
+        }
+
+        // Log statistics every 0.5 seconds
+        uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        if (now - last_report_time >= 500)
+        {
+            logi("Received %lu packets, written: %d bytes", packets_received, written);
+
+            logi("Decoded samples: %d", decoded_samples);
+            // print original packet first 8 bytes in hex
+            logi("Original packet first 8 bytes: %02X %02X %02X %02X %02X %02X %02X %02X",
+                 (uint8_t)udp_recv_buffer[0], (uint8_t)udp_recv_buffer[1], (uint8_t)udp_recv_buffer[2], (uint8_t)udp_recv_buffer[3],
+                 (uint8_t)udp_recv_buffer[4], (uint8_t)udp_recv_buffer[5], (uint8_t)udp_recv_buffer[6], (uint8_t)udp_recv_buffer[7]);
+
+            // print opus_payload first 8 bytes in hex
+            logi("Opus payload first 8 bytes: %02X %02X %02X %02X %02X %02X %02X %02X",
+                 opus_payload[0], opus_payload[1], opus_payload[2], opus_payload[3],
+                 opus_payload[4], opus_payload[5], opus_payload[6], opus_payload[7]);
+
+            logi("Decoded samples: %d", decoded_samples);
+            logi("PCM first 8 samples: %02X %02X %02X %02X %02X %02X %02X %02X",
+                 (uint16_t)pcm_buffer[0], (uint16_t)pcm_buffer[1], (uint16_t)pcm_buffer[2], (uint16_t)pcm_buffer[3],
+                 (uint16_t)pcm_buffer[4], (uint16_t)pcm_buffer[5], (uint16_t)pcm_buffer[6], (uint16_t)pcm_buffer[7]);
+
+            int rb_filled = rb_bytes_filled(in_ringbuf);
+            int rb_avail = rb_bytes_available(in_ringbuf);
+
+            logi("Raw ring buffer: filled %d bytes, available %d bytes",
+                 rb_filled, rb_avail);
+
+            audio_element_state_t i2s_state = audio_element_get_state(i2s_writer);
+            logw("I2S State: %d", i2s_state);
+
+            last_report_time = now;
+        }
+    }
+
+    vTaskDelete(NULL);
 }
 
 // =============================================================================
@@ -407,6 +565,13 @@ void app_main(void)
 
     pipeline_running = true;
     logi("Pipeline running");
+
+    // 7. Start UDP receiver task
+    xTaskCreatePinnedToCore(udp_receiver_task, "udp_rx", 16384, NULL, 5, NULL, 1);
+
+    logi("=================================================");
+    logi("System ready! Listening for Opus audio streams...");
+    logi("=================================================");
 
     // Main loop - just monitor memory
     while (1)
