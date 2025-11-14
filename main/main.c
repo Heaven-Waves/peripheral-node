@@ -49,10 +49,11 @@
 // =============================================================================
 
 #define BASIC_BUFFER_SIZE (8 * 1024)
-#define RTP_HEADER_SIZE 12
+#define RTP_HEADER_SIZE (12)
+#define WIFI_CONNECTED_BIT (BIT0)
+#define I2S_PORT (I2S_NUM_0)
 
 static EventGroupHandle_t s_wifi_event_group;
-static const int WIFI_CONNECTED_BIT = BIT0;
 
 static audio_element_handle_t i2s_writer;
 static audio_event_iface_handle_t evt;
@@ -189,6 +190,69 @@ static int setup_udp_multicast()
     logi("Successfully joined multicast group %s:%d", CONFIG_MULTICAST_IP, CONFIG_UDP_PORT);
     return sock;
 }
+
+// =============================================================================
+// AUDIO PIPELINE SETUP
+// =============================================================================
+
+static esp_err_t setup_audio_pipeline(void)
+{
+    logi("Setting up audio pipeline...");
+
+    // Create opus decoder
+    int opus_decoder_err;
+    decoder = opus_decoder_create(
+        CONFIG_AUDIO_SAMPLE_RATE,
+        CONFIG_AUDIO_CHANNELS,
+        &opus_decoder_err);
+    if (opus_decoder_err != OPUS_OK || decoder == NULL)
+    {
+        loge("Failed to create Opus decoder: %d", opus_decoder_err);
+        return ESP_FAIL;
+    }
+    logi("Opus decoder created successfully");
+
+    // Create input ring buffer
+    in_ringbuf = rb_create(BASIC_BUFFER_SIZE, 1);
+
+    if (in_ringbuf == NULL)
+    {
+        loge("Failed to create input ring buffer");
+        return ESP_FAIL;
+    }
+    logi("Input ring buffer created successfully");
+
+    // Configure I2S stream writer
+    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT_WITH_PARA(
+        I2S_PORT,
+        CONFIG_AUDIO_SAMPLE_RATE,
+        CONFIG_BITS_PER_SAMPLE,
+        AUDIO_STREAM_WRITER);
+    i2s_cfg.stack_in_ext = true;
+    i2s_cfg.task_stack = BASIC_BUFFER_SIZE;
+    i2s_cfg.out_rb_size = BASIC_BUFFER_SIZE;
+    i2s_cfg.task_core = 0;
+    i2s_cfg.volume = 100;
+
+    i2s_writer = i2s_stream_init(&i2s_cfg);
+    if (i2s_writer == NULL)
+    {
+        loge("Failed to create I2S writer");
+        return ESP_FAIL;
+    }
+
+    int ret = audio_element_set_input_ringbuf(i2s_writer, in_ringbuf);
+
+    if (ret != ESP_OK)
+    {
+        loge("Failed to set input ring buffer for I2S writer");
+        return ESP_FAIL;
+    }
+
+    logi("Audio pipeline setup complete");
+    return ESP_OK;
+}
+
 // =============================================================================
 // MAIN APPLICATION ENTRY POINT
 // =============================================================================
@@ -252,4 +316,31 @@ void app_main(void)
         loge("Failed to setup UDP socket");
         return;
     }
+
+    // 5. Setup audio pipeline
+    ret = setup_audio_pipeline();
+    if (ret != ESP_OK)
+    {
+        loge("Failed to setup audio pipeline");
+        return;
+    }
+    logi("Audio pipeline ready");
+
+    // 6. Start audio pipeline
+    int run_ret = audio_element_run(i2s_writer);
+    if (run_ret != ESP_OK)
+    {
+        loge("Failed to start I2S writer: %d", run_ret);
+        return;
+    }
+
+    int resume_ret = audio_element_resume(i2s_writer, 0, 0);
+    if (resume_ret != ESP_OK)
+    {
+        loge("Failed to resume I2S writer: %d", resume_ret);
+        return;
+    }
+
+    pipeline_running = true;
+    logi("Pipeline running");
 }
