@@ -549,17 +549,17 @@ void app_main(void)
     logi("Audio pipeline ready");
 
     // 6. Start audio pipeline
-    int run_ret = audio_element_run(i2s_writer);
-    if (run_ret != ESP_OK)
+    ret = audio_element_run(i2s_writer);
+    if (ret != ESP_OK)
     {
-        loge("Failed to start I2S writer: %d", run_ret);
+        loge("Failed to start I2S writer: %d", ret);
         return;
     }
 
-    int resume_ret = audio_element_resume(i2s_writer, 0, 0);
-    if (resume_ret != ESP_OK)
+    ret = audio_element_resume(i2s_writer, 0, 0);
+    if (ret != ESP_OK)
     {
-        loge("Failed to resume I2S writer: %d", resume_ret);
+        loge("Failed to resume I2S writer: %d", ret);
         return;
     }
 
