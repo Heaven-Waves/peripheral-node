@@ -7,7 +7,7 @@
 PROJECT_NAME := peripheral-node
 
 # Inlcluded path to main make file where ESP-ADF is located in the machine
-# ESP-ADF version used: v2.6
-# ESP-IDF version used: v4.4.4
+# ESP-ADF version used: v2.7
+# ESP-IDF version used: v5.3.1
 include $(ADF_PATH)/project.mk
 
