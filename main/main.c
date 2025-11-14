@@ -407,4 +407,12 @@ void app_main(void)
 
     pipeline_running = true;
     logi("Pipeline running");
+
+    // Main loop - just monitor memory
+    while (1)
+    {
+        logi("Free heap: %lu bytes, Min free: %lu bytes",
+             esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
+        vTaskDelay(pdMS_TO_TICKS(30000)); // Log every 30 seconds
+    }
 }
