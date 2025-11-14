@@ -139,6 +139,59 @@ static void wifi_init_sta(void)
         logi("Connected to WiFi SSID: %s", CONFIG_WIFI_SSID);
     }
 }
+
+// =============================================================================
+// UDP MULTICAST SETUP
+// =============================================================================
+
+static int setup_udp_multicast()
+{
+    struct sockaddr_in saddr;
+    int sock;
+    int err;
+
+    logi("Setting up UDP multicast socket...");
+
+    // Create UDP socket - following ESP-IDF multicast example
+    sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (sock < 0)
+    {
+        loge("Failed to create socket: errno %d", errno);
+        return -1;
+    }
+
+    // Bind socket to the port
+    saddr.sin_family = PF_INET;
+    saddr.sin_port = htons(CONFIG_UDP_PORT);
+    saddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    err = bind(sock, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in));
+    if (err < 0)
+    {
+        loge("Failed to bind socket: errno %d", errno);
+        close(sock);
+        return -1;
+    }
+    logi("Socket bound to port %d", CONFIG_UDP_PORT);
+    // Assign multicast address to imreq structure
+    struct ip_mreq imreq = {0};
+    imreq.imr_multiaddr.s_addr = inet_addr(CONFIG_MULTICAST_IP);
+    imreq.imr_interface.s_addr = htonl(INADDR_ANY);
+
+    // Join multicast group
+    err = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &imreq, sizeof(struct ip_mreq));
+    if (err < 0)
+    {
+        loge("Failed to join multicast group: errno %d", errno);
+        close(sock);
+        return -1;
+    }
+    logi("Successfully joined multicast group %s:%d", CONFIG_MULTICAST_IP, CONFIG_UDP_PORT);
+    return sock;
+}
+// =============================================================================
+// MAIN APPLICATION ENTRY POINT
+// =============================================================================
 void app_main(void)
 {
     esp_err_t ret;
@@ -191,4 +244,12 @@ void app_main(void)
     // 3. Connect to WiFi
     wifi_init_sta();
     logi("WiFi connected");
+
+    // 4. Setup UDP multicast socket
+    udp_socket = setup_udp_multicast();
+    if (udp_socket < 0)
+    {
+        loge("Failed to setup UDP socket");
+        return;
+    }
 }
