@@ -48,15 +48,13 @@
 // GLOBAL VARIABLES
 // =============================================================================
 
-#define BASIC_BUFFER_SIZE (16 * 1024)
-#define RTP_HEADER_SIZE (12)
 #define WIFI_CONNECTED_BIT (BIT0)
 #define I2S_PORT (I2S_NUM_0)
+#define MAX_OPUS_FRAME_SIZE (5760) // Max samples per channel at 48kHz (120ms)
 
 static EventGroupHandle_t s_wifi_event_group;
 
 static audio_element_handle_t i2s_writer;
-static audio_event_iface_handle_t evt;
 static ringbuf_handle_t in_ringbuf = NULL; // Ring buffer for feeding data to pipeline
 
 OpusDecoder *decoder;
@@ -64,8 +62,8 @@ static int udp_socket = -1;
 static volatile bool pipeline_running = false;
 
 // Static buffers to avoid stack overflow
-static int16_t pcm_buffer[4 * 1024];   // Max Opus frame size at 48kHz
-static char udp_recv_buffer[2 * 1024]; // Opus payload + header
+static char udp_recv_buffer[CONFIG_UDP_RECV_BUFFER_SIZE];  // Opus payload + header
+static int16_t pcm_buffer[CONFIG_DECODED_PCM_BUFFER_SIZE]; // Max Opus frame size at 48kHz
 
 // =============================================================================
 // WIFI EVENT HANDLER
@@ -211,7 +209,7 @@ static inline int get_rtp_payload(
     uint8_t **payload,
     int *payload_len)
 {
-    if (packet_len < RTP_HEADER_SIZE)
+    if (packet_len < CONFIG_RTP_HEADER_SIZE)
     {
         return -1; // Too short to be RTP
     }
@@ -229,7 +227,7 @@ static inline int get_rtp_payload(
     }
 
     // Calculate header size
-    int header_size = RTP_HEADER_SIZE; // Basic RTP header
+    int header_size = CONFIG_RTP_HEADER_SIZE; // Basic RTP header
 
     // Add CSRC size if present
     uint8_t cc = rtp->vpxcc & 0x0F;
@@ -280,7 +278,7 @@ static esp_err_t setup_audio_pipeline(void)
     logi("Opus decoder created successfully");
 
     // Create input ring buffer
-    in_ringbuf = rb_create(BASIC_BUFFER_SIZE, 1);
+    in_ringbuf = rb_create(CONFIG_AUDIO_BUFFER_SIZE, 1);
 
     if (in_ringbuf == NULL)
     {
@@ -296,8 +294,8 @@ static esp_err_t setup_audio_pipeline(void)
         CONFIG_BITS_PER_SAMPLE,
         AUDIO_STREAM_WRITER);
     i2s_cfg.stack_in_ext = true;
-    i2s_cfg.task_stack = BASIC_BUFFER_SIZE;
-    i2s_cfg.out_rb_size = BASIC_BUFFER_SIZE;
+    i2s_cfg.task_stack = CONFIG_AUDIO_BUFFER_SIZE;
+    i2s_cfg.out_rb_size = CONFIG_AUDIO_BUFFER_SIZE;
     i2s_cfg.task_core = 0;
     i2s_cfg.volume = 100;
 
@@ -370,8 +368,13 @@ static void udp_receiver_task(void *pvParameters)
         }
 
         // Data is available, receive it (using static buffer to avoid stack overflow)
-        int len = recvfrom(udp_socket, udp_recv_buffer, sizeof(udp_recv_buffer) - 1, 0,
-                           (struct sockaddr *)&raddr, &socklen);
+        int len = recvfrom(
+            udp_socket,
+            udp_recv_buffer,
+            CONFIG_UDP_RECV_BUFFER_SIZE - 1,
+            0,
+            (struct sockaddr *)&raddr,
+            &socklen);
 
         if (len < 0)
         {
@@ -384,7 +387,11 @@ static void udp_receiver_task(void *pvParameters)
         // Parse RTP header to get Opus payload
         uint8_t *opus_payload = NULL;
         int opus_len = 0;
-        int rtp_result = get_rtp_payload((uint8_t *)udp_recv_buffer, len, &opus_payload, &opus_len);
+        int rtp_result = get_rtp_payload(
+            (uint8_t *)udp_recv_buffer,
+            len,
+            &opus_payload,
+            &opus_len);
 
         if (rtp_result < 0)
         {
@@ -413,7 +420,7 @@ static void udp_receiver_task(void *pvParameters)
             opus_payload,
             opus_len,
             pcm_buffer,
-            CONFIG_OPUS_FRAME_SIZE,
+            MAX_OPUS_FRAME_SIZE,
             no_fec);
 
         if (decoded_samples < 0)

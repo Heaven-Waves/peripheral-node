@@ -14,51 +14,68 @@ menu "WiFI Configuration"
 endmenu
 
 menu "Audio Streaming Configuration"
-    config MULTICAST_IP
-        string "Multicast IP Address"
-        default "224.1.1.1"
-        help
-            Multicast group IP address to join.
+    menu "Networking Configuration"
+        config MULTICAST_IP
+            string "Multicast IP Address"
+            default "224.1.1.1"
+            help
+                Multicast group IP address to join.
 
-    config UDP_PORT
-        int "UDP Port"
-        default 5005
-        help
-            UDP port number to listen on.
-
-
-    config AUDIO_SAMPLE_RATE
-        int "Audio Sample Rate"
-        default 48000
-        help
-            Sample rate for audio playback (8000, 16000, 24000, 48000).
-
-    config BITS_PER_SAMPLE
-        int "Bits per sample"
-        default 16
-        help
-            8,16,32...
-
-    config AUDIO_CHANNELS
-        int "Audio Channels"
-        default 2
-        range 1 2
-        help
-            Number of audio channels (1=Mono, 2=Stereo).
-
-endmenu
-
-menu "Opus Configuration"
-    config OPUS_FRAME_SIZE
-        int "Frame Size"
-        default 960
-    
-    config MAX_PACKET_SIZE
-        int "Maximum Packet Size"
-        default 2048
-    
-    config JITTER_BUFFER_SIZE
-        int "Jutter Buffer Size"
-        default 2048
+        config UDP_PORT
+            int "UDP Port"
+            default 5005
+            help
+                UDP port number to listen on.
         
+        config RTP_HEADER_SIZE
+            int "RTP Header Size"
+            default 12
+            help
+                Size of the RTP header in bytes.
+        
+        config UDP_RECV_BUFFER_SIZE
+            int "UDP Receive Buffer Size"
+            default 2048
+            help
+                Size of the UDP receive buffer in bytes.
+    endmenu
+
+    menu "Audio Configuration"
+        config AUDIO_SAMPLE_RATE
+            int "Audio Sample Rate"
+            default 48000
+            help
+                Sample rate for audio playback (8000, 16000, 24000, 48000).
+
+        config BITS_PER_SAMPLE
+            int "Bits per sample"
+            default 16
+            help
+                8,16,32...
+
+        config AUDIO_CHANNELS
+            int "Audio Channels"
+            default 2
+            range 1 2
+            help
+                Number of audio channels (1=Mono, 2=Stereo).
+        config AUDIO_BUFFER_SIZE
+            int "Audio Buffer Size"
+            default 16384
+            help
+                Size of the audio buffer in bytes.
+    endmenu
+
+    menu "Opus Configuration"
+        config OPUS_FRAME_SIZE
+            int "Frame Size"
+            default 960
+            help
+                Number of samples per channel in each Opus frame (e.g., 960 for 20ms at 48kHz).
+        config DECODED_PCM_BUFFER_SIZE
+            int "Decoded PCM Buffer Size"
+            default 4096
+            help
+                Size of the buffer for decoded PCM samples in bytes.
+    endmenu
 endmenu
